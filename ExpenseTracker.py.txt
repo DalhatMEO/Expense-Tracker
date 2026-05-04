@@ -1,0 +1,90 @@
+    def validate_input(self):
+        try:
+            amount = float(self.amount_entry.get())
+            if amount <= 0:
+                raise ValueError("Сумма должна быть положительной")
+        except ValueError:
+            messagebox.showerror("Ошибка", "Введите корректную сумму")
+            return False
+
+        try:
+            date = datetime.strptime(self.date_entry.get(), "%Y-%m-%d")
+        except ValueError:
+            messagebox.showerror("Ошибка", "Неверный формат даты (ГГГГ-ММ-ДД)")
+            return False
+
+        if not self.category_var.get():
+            messagebox.showerror("Ошибка", "Выберите категорию")
+            return False
+
+        return True
+
+    def add_expense(self):
+        if not self.validate_input():
+            return
+
+        expense = {
+            "amount": float(self.amount_entry.get()),
+            "category": self.category_var.get(),
+            "date": self.date_entry.get()
+        }
+
+        self.expenses.append(expense)
+        self.update_table()
+        self.save_data()
+        self.amount_entry.delete(0, tk.END)
+
+    def update_table(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        filtered_expenses = self.apply_filters()
+        total = 0
+
+        for expense in filtered_expenses:
+            self.tree.insert("", "end", values=(
+                expense["amount"],
+                expense["category"],
+                expense["date"]
+            ))
+            total += expense["amount"]
+
+        self.total_label.config(text=f"Общая сумма: {total:.2f} руб.")
+
+    def apply_filters(self):
+        category = self.filter_category_var.get()
+        start_date = self.start_date_entry.get()
+        end_date = self.end_date_entry.get()
+
+        filtered = self.expenses
+
+        if category != "Все":
+            filtered = [e for e in filtered if e["category"] == category]
+
+        if start_date:
+            try:
+                start = datetime.strptime(start_date, "%Y-%m-%d")
+                filtered = [e for e in filtered if datetime.strptime(e["date"], "%Y-%m-%d") >= start]
+            except ValueError:
+                pass
+
+        if end_date:
+            try:
+                end = datetime.strptime(end_date, "%Y-%m-%d")
+                filtered = [e for e in filtered if datetime.strptime(e["date"], "%Y-%m-%d") <= end]
+            except ValueError:
+                pass
+
+        return filtered
+
+    def apply_filter(self):
+        self.update_table()
+
+    def save_data(self):
+        with open("data.json", "w", encoding="utf-8") as f:
+            json.dump(self.expenses, f, ensure_ascii=False, indent=2)
+
+    def load_data(self):
+        if os.path.exists("data.json"):
+            with open("data.json", "r", encoding="utf-8") as f:
+                self.expenses = json.load(f)
